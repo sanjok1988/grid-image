@@ -1,0 +1,1743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Image Grid Overlay Tool with Rulers & Measurements</title>
+<style>
+  /* ---------- Base / Reset ---------- */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  :root {
+    --bg: #f3f5f9;
+    --card: #ffffff;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --primary: #4f46e5;
+    --primary-hover: #4338ca;
+    --secondary: #10b981;
+    --secondary-hover: #059669;
+    --border: #e5e7eb;
+    --shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+    --radius: 12px;
+    --ruler-bg: #f9fafb;
+    --ruler-text: #4b5563;
+    --ruler-tick: #1f2937;
+    --ruler-width: 60px;
+    --ruler-height: 60px;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
+    color: var(--text);
+    line-height: 1.5;
+    padding: 24px 16px;
+    min-height: 100vh;
+  }
+
+  /* ---------- Layout ---------- */
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+
+  header h1 {
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  header p {
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+
+  .card-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-title::before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 20px;
+    background: var(--primary);
+    border-radius: 2px;
+  }
+
+  .card-title.collapsible {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .card-title.collapsible::after {
+    content: '▼';
+    margin-left: auto;
+    font-size: 0.8rem;
+    transition: transform 0.2s ease;
+  }
+
+  .card-title.collapsible.collapsed::after {
+    transform: rotate(-90deg);
+  }
+
+  .collapsible-content {
+    max-height: 1000px;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+
+  .collapsible-content.collapsed {
+    max-height: 0;
+  }
+
+  /* ---------- Upload Area ---------- */
+  .upload-area {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 32px 20px;
+    text-align: center;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    background: #fafbfd;
+  }
+
+  .upload-area:hover,
+  .upload-area.dragover {
+    border-color: var(--primary);
+    background: #f5f3ff;
+  }
+
+  .upload-area svg {
+    width: 48px;
+    height: 48px;
+    color: var(--primary);
+    margin-bottom: 8px;
+  }
+
+  .upload-area h3 {
+    font-size: 1.05rem;
+    margin-bottom: 4px;
+  }
+
+  .upload-area p {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  #fileInput {
+    display: none;
+  }
+
+  /* ---------- Controls Grid ---------- */
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .control-group label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .control-group input[type="color"] {
+    width: 100%;
+    height: 42px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    background: white;
+    padding: 4px;
+  }
+
+  .control-group input[type="range"] {
+    width: 100%;
+    accent-color: var(--primary);
+  }
+
+  .control-group input[type="text"],
+  .control-group input[type="number"],
+  .control-group select {
+    height: 42px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0 12px;
+    font-size: 0.95rem;
+    background: white;
+    color: var(--text);
+    font-family: inherit;
+  }
+
+  .control-group input[type="number"] {
+    padding: 8px 12px;
+  }
+
+  .control-group select {
+    cursor: pointer;
+  }
+
+  .control-group input:focus,
+  .control-group select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+  }
+
+  .range-display {
+    font-size: 0.82rem;
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  /* ---------- Checkbox ---------- */
+  .checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+  }
+
+  .checkbox-group input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--primary);
+  }
+
+  .checkbox-group label {
+    cursor: pointer;
+    font-size: 0.95rem;
+    margin: 0;
+  }
+
+  /* ---------- Buttons ---------- */
+  .button-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 16px;
+  }
+
+  .btn {
+    border: none;
+    border-radius: 8px;
+    padding: 12px 24px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+  }
+
+  .btn-secondary {
+    background: var(--secondary);
+    color: white;
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--secondary-hover);
+    transform: translateY(-1px);
+  }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-outline:hover:not(:disabled) {
+    background: #f9fafb;
+  }
+
+  /* ---------- Preview / Canvas with Rulers (CSS Grid Layout) ---------- */
+  .preview-grid {
+    display: grid;
+    grid-template-columns: var(--ruler-width) 1fr;
+    grid-template-rows: var(--ruler-height) 1fr;
+    gap: 0;
+    margin-bottom: 16px;
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .ruler-corner {
+    grid-column: 1;
+    grid-row: 1;
+    width: var(--ruler-width);
+    height: var(--ruler-height);
+    background: var(--ruler-bg);
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .ruler-top-container {
+    grid-column: 2;
+    grid-row: 1;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #rulerTopCanvas {
+    display: block;
+    width: 100%;
+    height: var(--ruler-height);
+  }
+
+  .ruler-left-container {
+    grid-column: 1;
+    grid-row: 2;
+    border-right: 1px solid var(--border);
+  }
+
+  #rulerLeftCanvas {
+    display: block;
+    width: var(--ruler-width);
+    height: 100%;
+  }
+
+  .preview-wrapper {
+    grid-column: 2;
+    grid-row: 2;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #fafbfd;
+    min-height: 300px;
+    position: relative;
+    overflow: auto;
+  }
+
+  #previewCanvas {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    background: white;
+  }
+
+  .placeholder {
+    color: var(--muted);
+    text-align: center;
+    padding: 40px 20px;
+  }
+
+  .placeholder svg {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 12px;
+    opacity: 0.4;
+  }
+
+  /* ---------- Information Panel ---------- */
+  .info-panel {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+
+  .info-block {
+    background: #f9fafb;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+
+  .info-block h4 {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+  }
+
+  .info-block p {
+    font-size: 0.9rem;
+    color: var(--text);
+    margin-bottom: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .info-block p:last-child {
+    margin-bottom: 0;
+  }
+
+  .info-value {
+    font-weight: 600;
+    color: var(--primary);
+  }
+
+  /* ---------- Instructions ---------- */
+  .instructions {
+    font-size: 0.88rem;
+    color: var(--muted);
+    background: #f9fafb;
+    border-left: 3px solid var(--primary);
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+  }
+
+  .instructions strong {
+    color: var(--text);
+  }
+
+  /* ---------- Sections Layout ---------- */
+  .form-section {
+    margin-bottom: 0;
+  }
+
+  .form-section + .form-section {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 900px) {
+    .preview-grid {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 1fr;
+    }
+
+    .ruler-corner {
+      display: none;
+    }
+
+    .ruler-top-container {
+      grid-column: 1;
+      grid-row: 1;
+      border-bottom: none;
+      border-right: none;
+    }
+
+    #rulerTopCanvas {
+      display: none;
+    }
+
+    .ruler-left-container {
+      grid-column: 1;
+      grid-row: 1;
+      border-right: none;
+      border-bottom: none;
+    }
+
+    #rulerLeftCanvas {
+      display: none;
+    }
+
+    .preview-wrapper {
+      grid-column: 1;
+      grid-row: 2;
+      min-height: 250px;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .card {
+      padding: 16px;
+    }
+
+    .controls {
+      grid-template-columns: 1fr;
+    }
+
+    .btn {
+      padding: 10px 18px;
+      font-size: 0.9rem;
+      width: 100%;
+    }
+
+    .button-row {
+      flex-direction: column;
+    }
+
+    .info-panel {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Image Grid Overlay Tool</h1>
+      <p>Upload an image, apply geometric grid overlay, add precise rulers, and download with measurements.</p>
+    </header>
+
+    <!-- Upload & Grid Controls -->
+    <section class="card">
+      <div class="instructions">
+        <strong>Getting started:</strong> Upload an image, configure grid and measurements, then download. Rulers help you transfer the design to physical media at any scale.
+      </div>
+
+      <label for="fileInput" class="upload-area" id="uploadArea">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M7 16a4 4 0 01-.88-7.9 5 5 0 019.9-1.5 4.5 4.5 0 011.98 8.65M12 12v9m0 0l-3-3m3 3l3-3"/>
+        </svg>
+        <h3>Click to upload or drag &amp; drop</h3>
+        <p>PNG, JPG, JPEG, WEBP — any size</p>
+      </label>
+      <input type="file" id="fileInput" accept="image/*" />
+
+      <!-- Grid Controls -->
+      <div class="form-section" style="margin-top: 20px;">
+        <div class="card-title">Grid Controls</div>
+        <div class="controls">
+          <div class="control-group">
+            <label for="lineColor">Line Color</label>
+            <input type="color" id="lineColor" value="#ff0000" disabled />
+          </div>
+
+          <div class="control-group">
+            <label for="lineWidth">Line Width <span class="range-display" id="widthDisplay">2px</span></label>
+            <input type="range" id="lineWidth" min="1" max="20" value="2" disabled />
+          </div>
+
+          <div class="control-group">
+            <label for="formatSelect">Download Format</label>
+            <select id="formatSelect" disabled>
+              <option value="png">PNG</option>
+              <option value="jpeg">JPG</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label for="includeRulers">Include Rulers</label>
+            <div class="checkbox-group">
+              <input type="checkbox" id="includeRulers" />
+              <label for="includeRulers" style="margin: 0;">Add rulers to download</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="button-row">
+          <button class="btn btn-primary" id="applyBtn" disabled>
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+            Apply Grid
+          </button>
+          <button class="btn btn-secondary" id="downloadBtn" disabled>
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/>
+            </svg>
+            Download Grid Image
+          </button>
+          <button class="btn btn-outline" id="resetBtn" disabled>Reset</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Measurement Controls -->
+    <section class="card">
+      <div class="form-section">
+        <div class="card-title">Measurement Settings</div>
+        <div class="controls">
+          <div class="control-group">
+            <label for="unitSelect">Measurement Unit</label>
+            <select id="unitSelect" disabled>
+              <option value="cm">Centimeters (cm)</option>
+              <option value="in">Inches (in)</option>
+              <option value="ft">Feet (ft)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="card-title">Real-World Image Size</div>
+        <div class="controls">
+          <div class="control-group">
+            <label for="realWidth">Width</label>
+            <input type="number" id="realWidth" placeholder="0" step="0.1" min="0" disabled />
+          </div>
+
+          <div class="control-group">
+            <label for="realHeight">Height</label>
+            <input type="number" id="realHeight" placeholder="0" step="0.1" min="0" disabled />
+          </div>
+
+          <div class="control-group">
+            <label for="realUnit">Unit</label>
+            <select id="realUnit" disabled>
+              <option value="cm">Centimeters (cm)</option>
+              <option value="in">Inches (in)</option>
+              <option value="ft">Feet (ft)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="card-title">Scale / Enlargement</div>
+        <div class="controls">
+          <div class="control-group">
+            <label for="scaleMultiplier">Scale Multiplier <span class="range-display" id="scaleDisplay">1x</span></label>
+            <input type="range" id="scaleMultiplier" min="1" max="20" step="0.5" value="1" disabled />
+          </div>
+
+          <div class="control-group">
+            <label for="targetWidth">Target Width</label>
+            <input type="number" id="targetWidth" placeholder="0" step="0.1" min="0" disabled />
+          </div>
+
+          <div class="control-group">
+            <label for="targetHeight">Target Height</label>
+            <input type="number" id="targetHeight" placeholder="0" step="0.1" min="0" disabled />
+          </div>
+        </div>
+
+        <div class="checkbox-group">
+          <input type="checkbox" id="aspectRatioLock" checked disabled />
+          <label for="aspectRatioLock">Lock aspect ratio</label>
+        </div>
+
+        <div class="checkbox-group">
+          <input type="checkbox" id="enlargedScaleMode" disabled />
+          <label for="enlargedScaleMode">View enlarged scale measurements</label>
+        </div>
+      </div>
+    </section>
+
+    <!-- Customize Grid Section -->
+    <section class="card">
+      <div class="card-title collapsible" id="customizeGridTitle">Customize Grid</div>
+      <div class="collapsible-content collapsed" id="customizeGridContent">
+        <div class="form-section">
+          <div class="checkbox-group">
+            <input type="checkbox" id="enableCustomGrid" disabled />
+            <label for="enableCustomGrid">Enable custom grid</label>
+          </div>
+        </div>
+
+        <div class="form-section" style="margin-top: 16px;">
+          <div class="controls">
+            <div class="control-group">
+              <label for="horizontalDivisions">Horizontal Divisions</label>
+              <input type="number" id="horizontalDivisions" placeholder="4" min="1" max="100" value="4" disabled />
+            </div>
+
+            <div class="control-group">
+              <label for="verticalDivisions">Vertical Divisions</label>
+              <input type="number" id="verticalDivisions" placeholder="4" min="1" max="100" value="4" disabled />
+            </div>
+
+            <div class="control-group">
+              <label for="diagonalSubdivisions">Diagonal Subdivisions</label>
+              <input type="number" id="diagonalSubdivisions" placeholder="1" min="1" max="50" value="1" disabled />
+            </div>
+          </div>
+
+          <div class="checkbox-group">
+            <input type="checkbox" id="showDiamond" checked disabled />
+            <label for="showDiamond">Show diamond guide</label>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Preview with Rulers -->
+    <section class="card">
+      <div class="card-title">Preview with Rulers</div>
+      <div class="preview-grid">
+        <div class="ruler-corner"></div>
+        <div class="ruler-top-container">
+          <canvas id="rulerTopCanvas"></canvas>
+        </div>
+        <div class="ruler-left-container">
+          <canvas id="rulerLeftCanvas"></canvas>
+        </div>
+        <div class="preview-wrapper">
+          <div class="placeholder" id="placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            <p>Your preview will appear here</p>
+          </div>
+          <canvas id="previewCanvas"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Information Panel -->
+    <section class="card">
+      <div class="card-title">Measurement Information</div>
+      <div class="info-panel" id="infoPanel">
+        <div class="info-block">
+          <h4>Original Size</h4>
+          <p id="infoOriginalSize">—</p>
+          <p id="infoAspectRatio">—</p>
+        </div>
+
+        <div class="info-block">
+          <h4>Target Size</h4>
+          <p id="infoTargetSize">—</p>
+          <p id="infoScaleMultiplier">—</p>
+        </div>
+
+        <div class="info-block">
+          <h4>Vertical Guide Positions</h4>
+          <p id="infoVerticalGuides">—</p>
+        </div>
+
+        <div class="info-block">
+          <h4>Horizontal Guide Positions</h4>
+          <p id="infoHorizontalGuides">—</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+<script>
+/* ============================================================
+   Enhanced Image Grid Overlay Tool with Rulers & Measurements
+   - Fixed ruler mismatch in downloads
+   - Added customizable grid feature
+   ============================================================ */
+
+(function () {
+  'use strict';
+
+  // ---------- DOM References ----------
+  const fileInput             = document.getElementById('fileInput');
+  const uploadArea            = document.getElementById('uploadArea');
+  const canvas                = document.getElementById('previewCanvas');
+  const ctx                   = canvas.getContext('2d');
+  const placeholder           = document.getElementById('placeholder');
+  const lineColorInput        = document.getElementById('lineColor');
+  const lineWidthInput        = document.getElementById('lineWidth');
+  const widthDisplay          = document.getElementById('widthDisplay');
+  const formatSelect          = document.getElementById('formatSelect');
+  const includeRulers         = document.getElementById('includeRulers');
+  const applyBtn              = document.getElementById('applyBtn');
+  const downloadBtn           = document.getElementById('downloadBtn');
+  const resetBtn              = document.getElementById('resetBtn');
+
+  const unitSelect            = document.getElementById('unitSelect');
+  const realWidth             = document.getElementById('realWidth');
+  const realHeight            = document.getElementById('realHeight');
+  const realUnit              = document.getElementById('realUnit');
+  const scaleMultiplier       = document.getElementById('scaleMultiplier');
+  const scaleDisplay          = document.getElementById('scaleDisplay');
+  const targetWidth           = document.getElementById('targetWidth');
+  const targetHeight          = document.getElementById('targetHeight');
+  const aspectRatioLock       = document.getElementById('aspectRatioLock');
+  const enlargedScaleMode     = document.getElementById('enlargedScaleMode');
+
+  const customizeGridTitle    = document.getElementById('customizeGridTitle');
+  const customizeGridContent  = document.getElementById('customizeGridContent');
+  const enableCustomGrid      = document.getElementById('enableCustomGrid');
+  const horizontalDivisions   = document.getElementById('horizontalDivisions');
+  const verticalDivisions     = document.getElementById('verticalDivisions');
+  const diagonalSubdivisions  = document.getElementById('diagonalSubdivisions');
+  const showDiamond           = document.getElementById('showDiamond');
+
+  const rulerTopCanvas        = document.getElementById('rulerTopCanvas');
+  const rulerTopCtx           = rulerTopCanvas.getContext('2d');
+  const rulerLeftCanvas       = document.getElementById('rulerLeftCanvas');
+  const rulerLeftCtx          = rulerLeftCanvas.getContext('2d');
+
+  const infoPanel             = document.getElementById('infoPanel');
+
+  // ---------- State ----------
+  let currentImage            = null;
+  let displayCanvasWidth      = 0;
+  let displayCanvasHeight     = 0;
+
+  // ---------- Unit Conversion ----------
+  const UNIT_CONVERSIONS = {
+    cm: 1,
+    in: 1 / 2.54,
+    ft: 1 / 30.48
+  };
+
+  const UNIT_LABELS = {
+    cm: 'cm',
+    in: 'in',
+    ft: 'ft'
+  };
+
+  function toCm(value, unit) {
+    return value / UNIT_CONVERSIONS[unit];
+  }
+
+  function fromCm(valueCm, unit) {
+    return valueCm * UNIT_CONVERSIONS[unit];
+  }
+
+  function formatMeasurement(value, unit) {
+    let formatted;
+    if (value < 1) {
+      formatted = value.toFixed(2);
+    } else if (value < 100) {
+      formatted = value.toFixed(1);
+    } else {
+      formatted = Math.round(value);
+    }
+    return formatted + ' ' + UNIT_LABELS[unit];
+  }
+
+  // ---------- Event Listeners ----------
+  fileInput.addEventListener('change', handleFileSelect);
+
+  ['dragenter', 'dragover'].forEach(evt => {
+    uploadArea.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      uploadArea.classList.add('dragover');
+    });
+  });
+  ['dragleave', 'drop'].forEach(evt => {
+    uploadArea.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      uploadArea.classList.remove('dragover');
+    });
+  });
+  uploadArea.addEventListener('drop', (e) => {
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      loadImageFile(file);
+    }
+  });
+
+  // Grid controls
+  lineColorInput.addEventListener('input', () => {
+    if (currentImage) render();
+  });
+  lineWidthInput.addEventListener('input', () => {
+    widthDisplay.textContent = lineWidthInput.value + 'px';
+    if (currentImage) render();
+  });
+
+  // Collapsible customize grid
+  customizeGridTitle.addEventListener('click', () => {
+    customizeGridTitle.classList.toggle('collapsed');
+    customizeGridContent.classList.toggle('collapsed');
+  });
+
+  // Custom grid controls
+  enableCustomGrid.addEventListener('change', () => {
+    const isEnabled = enableCustomGrid.checked;
+    horizontalDivisions.disabled = !isEnabled;
+    verticalDivisions.disabled = !isEnabled;
+    diagonalSubdivisions.disabled = !isEnabled;
+    showDiamond.disabled = !isEnabled;
+    if (currentImage) {
+      render();
+      updateInfoPanel();
+    }
+  });
+
+  horizontalDivisions.addEventListener('input', () => {
+    if (currentImage) {
+      render();
+      updateInfoPanel();
+    }
+  });
+
+  verticalDivisions.addEventListener('input', () => {
+    if (currentImage) {
+      render();
+      updateInfoPanel();
+    }
+  });
+
+  diagonalSubdivisions.addEventListener('input', () => {
+    if (currentImage) {
+      render();
+      updateInfoPanel();
+    }
+  });
+
+  showDiamond.addEventListener('change', () => {
+    if (currentImage) render();
+  });
+
+  // Measurement controls
+  unitSelect.addEventListener('change', () => {
+    if (currentImage) {
+      render();
+      updateInfoPanel();
+    }
+  });
+
+  realWidth.addEventListener('input', calculateTargetDimensions);
+  realHeight.addEventListener('input', calculateTargetDimensions);
+  realUnit.addEventListener('change', () => {
+    if (currentImage) {
+      render();
+      updateInfoPanel();
+    }
+  });
+
+  scaleMultiplier.addEventListener('input', () => {
+    scaleDisplay.textContent = scaleMultiplier.value + 'x';
+    calculateTargetDimensions();
+  });
+
+  targetWidth.addEventListener('input', () => {
+    if (aspectRatioLock.checked && currentImage) {
+      const tw = parseFloat(targetWidth.value) || 0;
+      if (tw > 0) {
+        const rw = parseFloat(realWidth.value) || 0;
+        const rh = parseFloat(realHeight.value) || 0;
+        if (rw > 0 && rh > 0) {
+          const newHeight = (tw / rw) * rh;
+          targetHeight.value = newHeight.toFixed(2);
+        }
+      }
+    }
+    updateInfoPanel();
+  });
+
+  targetHeight.addEventListener('input', () => {
+    if (aspectRatioLock.checked && currentImage) {
+      const th = parseFloat(targetHeight.value) || 0;
+      if (th > 0) {
+        const rw = parseFloat(realWidth.value) || 0;
+        const rh = parseFloat(realHeight.value) || 0;
+        if (rw > 0 && rh > 0) {
+          const newWidth = (th / rh) * rw;
+          targetWidth.value = newWidth.toFixed(2);
+        }
+      }
+    }
+    updateInfoPanel();
+  });
+
+  aspectRatioLock.addEventListener('change', () => {
+    if (aspectRatioLock.checked && currentImage) {
+      calculateTargetDimensions();
+    }
+  });
+
+  enlargedScaleMode.addEventListener('change', () => {
+    if (currentImage) {
+      render();
+      updateInfoPanel();
+    }
+  });
+
+  applyBtn.addEventListener('click', render);
+  downloadBtn.addEventListener('click', downloadImage);
+  resetBtn.addEventListener('click', resetAll);
+
+  // Window resize for ruler alignment
+  window.addEventListener('resize', () => {
+    if (currentImage) {
+      render();
+    }
+  });
+
+  // ---------- Handlers ----------
+  function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+      loadImageFile(file);
+    }
+  }
+
+  function loadImageFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        currentImage = img;
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+
+        // Initialize real dimensions based on image size
+        realWidth.value = (w / 96 * 2.54).toFixed(1);  // Assuming 96 DPI
+        realHeight.value = (h / 96 * 2.54).toFixed(1);
+
+        render();
+        enableControls(true);
+        calculateTargetDimensions();
+        updateInfoPanel();
+      };
+      img.onerror = () => alert('Failed to load image. Please try another file.');
+      img.src = e.target.result;
+    };
+    reader.onerror = () => alert('Failed to read the file.');
+    reader.readAsDataURL(file);
+  }
+
+  function enableControls(enabled) {
+    lineColorInput.disabled    = !enabled;
+    lineWidthInput.disabled    = !enabled;
+    formatSelect.disabled      = !enabled;
+    applyBtn.disabled          = !enabled;
+    downloadBtn.disabled       = !enabled;
+    resetBtn.disabled          = !enabled;
+    unitSelect.disabled        = !enabled;
+    realWidth.disabled         = !enabled;
+    realHeight.disabled        = !enabled;
+    realUnit.disabled          = !enabled;
+    scaleMultiplier.disabled   = !enabled;
+    targetWidth.disabled       = !enabled;
+    targetHeight.disabled      = !enabled;
+    aspectRatioLock.disabled   = !enabled;
+    enlargedScaleMode.disabled = !enabled;
+    enableCustomGrid.disabled  = !enabled;
+    if (!enabled) {
+      horizontalDivisions.disabled = true;
+      verticalDivisions.disabled = true;
+      diagonalSubdivisions.disabled = true;
+      showDiamond.disabled = true;
+    } else if (enableCustomGrid.checked) {
+      horizontalDivisions.disabled = false;
+      verticalDivisions.disabled = false;
+      diagonalSubdivisions.disabled = false;
+      showDiamond.disabled = false;
+    }
+  }
+
+  function calculateTargetDimensions() {
+    if (!currentImage) return;
+
+    const rw = parseFloat(realWidth.value) || 0;
+    const rh = parseFloat(realHeight.value) || 0;
+    const scale = parseFloat(scaleMultiplier.value) || 1;
+
+    if (rw > 0 && rh > 0) {
+      targetWidth.value = (rw * scale).toFixed(2);
+      targetHeight.value = (rh * scale).toFixed(2);
+    }
+
+    updateInfoPanel();
+  }
+
+  function updateInfoPanel() {
+    if (!currentImage) return;
+
+    const unit = unitSelect.value;
+    const rw = parseFloat(realWidth.value) || 0;
+    const rh = parseFloat(realHeight.value) || 0;
+    const tw = parseFloat(targetWidth.value) || 0;
+    const th = parseFloat(targetHeight.value) || 0;
+    const scale = parseFloat(scaleMultiplier.value) || 1;
+
+    // Original size
+    const originalSizeStr = rw > 0 && rh > 0
+      ? `${rw.toFixed(1)} × ${rh.toFixed(1)} ${UNIT_LABELS[unit]}`
+      : '—';
+
+    // Aspect ratio
+    let aspectRatioStr = '—';
+    if (rw > 0 && rh > 0) {
+      const gcd = (a, b) => b === 0 ? a : gcd(b, a % b);
+      const divisor = gcd(Math.round(rw * 1000), Math.round(rh * 1000));
+      const ratioW = Math.round((rw * 1000) / divisor);
+      const ratioH = Math.round((rh * 1000) / divisor);
+      aspectRatioStr = `${ratioW}:${ratioH}`;
+    }
+
+    // Target size
+    const targetSizeStr = tw > 0 && th > 0
+      ? `${tw.toFixed(1)} × ${th.toFixed(1)} ${UNIT_LABELS[unit]}`
+      : '—';
+
+    // Scale display
+    const scaleStr = `${scale}x`;
+
+    // Guide positions
+    const displayScale = enlargedScaleMode.checked ? scale : 1;
+
+    let verticalGuidesStr = '—';
+    let horizontalGuidesStr = '—';
+
+    if (rw > 0 && rh > 0) {
+      if (enableCustomGrid.checked) {
+        // Custom grid
+        const hDiv = parseInt(horizontalDivisions.value) || 4;
+        const vDiv = parseInt(verticalDivisions.value) || 4;
+
+        const verticalLines = [];
+        for (let i = 1; i < vDiv; i++) {
+          const pos = (i / vDiv) * rw * displayScale;
+          const perc = (i / vDiv) * 100;
+          verticalLines.push(`${perc.toFixed(0)}%: ${formatMeasurement(pos, unit)}`);
+        }
+
+        const horizontalLines = [];
+        for (let i = 1; i < hDiv; i++) {
+          const pos = (i / hDiv) * rh * displayScale;
+          const perc = (i / hDiv) * 100;
+          horizontalLines.push(`${perc.toFixed(0)}%: ${formatMeasurement(pos, unit)}`);
+        }
+
+        if (verticalLines.length > 20) {
+          verticalGuidesStr = 'Too many guide lines to list individually.';
+        } else {
+          verticalGuidesStr = verticalLines.length > 0 ? verticalLines.join('<br/>') : '—';
+        }
+
+        if (horizontalLines.length > 20) {
+          horizontalGuidesStr = 'Too many guide lines to list individually.';
+        } else {
+          horizontalGuidesStr = horizontalLines.length > 0 ? horizontalLines.join('<br/>') : '—';
+        }
+      } else {
+        // Default grid (25%, 50%, 75%)
+        const q1w = (rw / 4) * displayScale;
+        const q2w = (rw / 2) * displayScale;
+        const q3w = (rw * 3 / 4) * displayScale;
+
+        const q1h = (rh / 4) * displayScale;
+        const q2h = (rh / 2) * displayScale;
+        const q3h = (rh * 3 / 4) * displayScale;
+
+        verticalGuidesStr = `25%: ${formatMeasurement(q1w, unit)}<br/>50%: ${formatMeasurement(q2w, unit)}<br/>75%: ${formatMeasurement(q3w, unit)}`;
+        horizontalGuidesStr = `25%: ${formatMeasurement(q1h, unit)}<br/>50%: ${formatMeasurement(q2h, unit)}<br/>75%: ${formatMeasurement(q3h, unit)}`;
+      }
+    }
+
+    document.getElementById('infoOriginalSize').innerHTML = `${originalSizeStr}<br/><span style="font-size: 0.85rem; color: var(--muted);">Aspect: ${aspectRatioStr}</span>`;
+    document.getElementById('infoTargetSize').innerHTML = targetSizeStr;
+    document.getElementById('infoScaleMultiplier').innerHTML = `Scale: <span class="info-value">${scaleStr}</span>`;
+    document.getElementById('infoVerticalGuides').innerHTML = verticalGuidesStr;
+    document.getElementById('infoHorizontalGuides').innerHTML = horizontalGuidesStr;
+  }
+
+  // ---------- Main Render ----------
+  function render() {
+    if (!currentImage) return;
+
+    const w = currentImage.naturalWidth;
+    const h = currentImage.naturalHeight;
+
+    canvas.width = w;
+    canvas.height = h;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, w, h);
+
+    // Draw the uploaded image
+    ctx.drawImage(currentImage, 0, 0, w, h);
+
+    // Draw the grid overlay
+    drawGrid(w, h);
+
+    // Show canvas, hide placeholder
+    canvas.style.display = 'block';
+    placeholder.style.display = 'none';
+
+    // Get display dimensions of canvas element
+    const canvasRect = canvas.getBoundingClientRect();
+    displayCanvasWidth = canvasRect.width;
+    displayCanvasHeight = canvasRect.height;
+
+    // Draw rulers
+    drawRulers();
+  }
+
+  /**
+   * Draw grid (default or custom)
+   */
+  function drawGrid(width, height) {
+    if (enableCustomGrid.checked) {
+      drawCustomGrid(width, height);
+    } else {
+      drawDefaultGrid(width, height);
+    }
+  }
+
+  /**
+   * Draw default grid (unchanged from original)
+   */
+  function drawDefaultGrid(width, height) {
+    const color = lineColorInput.value;
+    const lineWidth = parseFloat(lineWidthInput.value);
+
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    const cx = width / 2;
+    const cy = height / 2;
+
+    // 1. Center Horizontal Line
+    drawLine(0, cy, width, cy);
+
+    // 2. Center Vertical Line
+    drawLine(cx, 0, cx, height);
+
+    // 3. Diagonals
+    drawLine(0, 0, width, height);
+    drawLine(width, 0, 0, height);
+
+    // 4. Diamond
+    ctx.beginPath();
+    ctx.moveTo(cx, 0);
+    ctx.lineTo(width, cy);
+    ctx.lineTo(cx, height);
+    ctx.lineTo(0, cy);
+    ctx.closePath();
+    ctx.stroke();
+
+    // 5. Quarter-position guides
+    drawLine(width / 4, 0, width / 4, height);
+    drawLine((width * 3) / 4, 0, (width * 3) / 4, height);
+    drawLine(0, height / 4, width, height / 4);
+    drawLine(0, (height * 3) / 4, width, (height * 3) / 4);
+
+    ctx.restore();
+  }
+
+  /**
+   * Draw custom grid
+   */
+  function drawCustomGrid(width, height) {
+    const color = lineColorInput.value;
+    const lineWidth = parseFloat(lineWidthInput.value);
+    const hDiv = parseInt(horizontalDivisions.value) || 4;
+    const vDiv = parseInt(verticalDivisions.value) || 4;
+    const dSub = parseInt(diagonalSubdivisions.value) || 1;
+    const isDiamondEnabled = showDiamond.checked;
+
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Draw horizontal lines
+    for (let i = 1; i < hDiv; i++) {
+      const y = (height / hDiv) * i;
+      drawLine(0, y, width, y);
+    }
+
+    // Draw vertical lines
+    for (let i = 1; i < vDiv; i++) {
+      const x = (width / vDiv) * i;
+      drawLine(x, 0, x, height);
+    }
+
+    // Draw diagonals
+    drawDiagonalLines(width, height, dSub);
+
+    // Draw diamond
+    if (isDiamondEnabled) {
+      drawDiamond(width, height);
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * Draw diagonal lines with subdivisions
+   */
+  function drawDiagonalLines(width, height, subdivisions) {
+    const cx = width / 2;
+    const cy = height / 2;
+
+    // Main diagonals
+    drawLine(0, 0, width, height);
+    drawLine(width, 0, 0, height);
+
+    // Parallel diagonals
+    for (let i = 1; i < subdivisions; i++) {
+      const offsetX = (width / subdivisions) * i;
+      const offsetY = (height / subdivisions) * i;
+
+      // Top-left to bottom-right direction
+      drawClippedDiagonal(width, height, 1, offsetX);
+      drawClippedDiagonal(width, height, 1, -offsetX);
+
+      // Top-right to bottom-left direction
+      drawClippedDiagonal(width, height, -1, offsetX);
+      drawClippedDiagonal(width, height, -1, -offsetX);
+    }
+  }
+
+  /**
+   * Draw a diagonal line clipped to image rectangle
+   * slope: 1 for /, -1 for \
+   * offset: horizontal offset from center
+   */
+  function drawClippedDiagonal(width, height, slope, offset) {
+    let x1, y1, x2, y2;
+
+    if (slope === 1) {
+      // / direction (top-left to bottom-right)
+      // Line: y = x + offset
+      x1 = Math.max(0, -offset);
+      y1 = Math.max(0, offset);
+      x2 = Math.min(width, width + offset);
+      y2 = Math.min(height, height + offset);
+
+      if (x1 < width && y1 < height && x2 > 0 && y2 > 0) {
+        // Clip to boundaries
+        if (y1 < 0) { y1 = 0; x1 = -offset; }
+        if (x1 < 0) { x1 = 0; y1 = offset; }
+        if (y2 > height) { y2 = height; x2 = height + offset; }
+        if (x2 > width) { x2 = width; y2 = width + offset; }
+
+        x1 = Math.max(0, Math.min(width, x1));
+        x2 = Math.max(0, Math.min(width, x2));
+        y1 = Math.max(0, Math.min(height, y1));
+        y2 = Math.max(0, Math.min(height, y2));
+
+        drawLine(x1, y1, x2, y2);
+      }
+    } else {
+      // \ direction (top-right to bottom-left)
+      // Line: y = -x + offset
+      x1 = Math.max(0, offset);
+      y1 = Math.max(0, offset);
+      x2 = Math.min(width, width + offset);
+      y2 = Math.min(height, height - offset);
+
+      if (x1 < width && y1 < height && x2 > 0 && y2 > 0) {
+        // Clip to boundaries
+        if (y1 < 0) { y1 = 0; x1 = offset; }
+        if (x1 > width) { x1 = width; y1 = offset - width; }
+        if (y2 > height) { y2 = height; x2 = offset - height; }
+        if (x2 < 0) { x2 = 0; y2 = offset; }
+
+        x1 = Math.max(0, Math.min(width, x1));
+        x2 = Math.max(0, Math.min(width, x2));
+        y1 = Math.max(0, Math.min(height, y1));
+        y2 = Math.max(0, Math.min(height, y2));
+
+        drawLine(x1, y1, x2, y2);
+      }
+    }
+  }
+
+  /**
+   * Draw diamond
+   */
+  function drawDiamond(width, height) {
+    const cx = width / 2;
+    const cy = height / 2;
+
+    ctx.beginPath();
+    ctx.moveTo(cx, 0);
+    ctx.lineTo(width, cy);
+    ctx.lineTo(cx, height);
+    ctx.lineTo(0, cy);
+    ctx.closePath();
+    ctx.stroke();
+  }
+
+  function drawLine(x1, y1, x2, y2) {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+
+  // ---------- Rulers ----------
+  function drawRulers() {
+    const rw = parseFloat(realWidth.value) || 0;
+    const rh = parseFloat(realHeight.value) || 0;
+
+    if (rw <= 0 || rh <= 0) {
+      clearRulers();
+      return;
+    }
+
+    const unit = unitSelect.value;
+    const scale = enlargedScaleMode.checked ? parseFloat(scaleMultiplier.value) || 1 : 1;
+
+    const displayWidth = rw * scale;
+    const displayHeight = rh * scale;
+
+    // Set horizontal ruler canvas to match displayed image width
+    const dpr = window.devicePixelRatio || 1;
+    
+    rulerTopCanvas.width = Math.round(displayCanvasWidth * dpr);
+    rulerTopCanvas.height = Math.round(60 * dpr);
+    rulerTopCanvas.style.width = displayCanvasWidth + 'px';
+    rulerTopCanvas.style.height = '60px';
+    
+    rulerTopCtx.scale(dpr, dpr);
+    renderRulerToContext(rulerTopCtx, {
+      orientation: 'horizontal',
+      lengthPx: displayCanvasWidth,
+      thicknessPx: 60,
+      realLength: displayWidth,
+      unit: unit,
+      dpr: dpr,
+      fontScale: 1,
+      labelScale: 1
+    });
+
+    // Set vertical ruler canvas to match displayed image height
+    rulerLeftCanvas.width = Math.round(60 * dpr);
+    rulerLeftCanvas.height = Math.round(displayCanvasHeight * dpr);
+    rulerLeftCanvas.style.width = '60px';
+    rulerLeftCanvas.style.height = displayCanvasHeight + 'px';
+    
+    rulerLeftCtx.scale(dpr, dpr);
+    renderRulerToContext(rulerLeftCtx, {
+      orientation: 'vertical',
+      lengthPx: displayCanvasHeight,
+      thicknessPx: 60,
+      realLength: displayHeight,
+      unit: unit,
+      dpr: dpr,
+      fontScale: 1,
+      labelScale: 1
+    });
+  }
+
+  /**
+   * Shared ruler rendering function
+   */
+  function renderRulerToContext(rulerCtx, options) {
+    const {
+      orientation,
+      lengthPx,
+      thicknessPx,
+      realLength,
+      unit,
+      dpr,
+      fontScale,
+      labelScale
+    } = options;
+
+    const isHorizontal = orientation === 'horizontal';
+    const width = isHorizontal ? lengthPx : thicknessPx;
+    const height = isHorizontal ? thicknessPx : lengthPx;
+
+    rulerCtx.clearRect(0, 0, width, height);
+
+    // Background
+    rulerCtx.fillStyle = '#f9fafb';
+    rulerCtx.fillRect(0, 0, width, height);
+
+    // Border
+    rulerCtx.strokeStyle = '#e5e7eb';
+    rulerCtx.lineWidth = 1;
+    rulerCtx.strokeRect(0, 0, width, height);
+
+    // Calculate tick spacing
+    const pixelsPerUnit = lengthPx / realLength;
+    const majorTickDistance = calculateMajorTickDistance(realLength, unit);
+    const majorTickPixels = majorTickDistance * pixelsPerUnit;
+
+    rulerCtx.strokeStyle = '#1f2937';
+    rulerCtx.lineWidth = 1;
+    rulerCtx.fillStyle = '#4b5563';
+    rulerCtx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    rulerCtx.textAlign = 'center';
+    rulerCtx.textBaseline = 'top';
+
+    // Draw ticks and labels
+    for (let currentPos = 0; currentPos <= realLength; currentPos += majorTickDistance) {
+      const tickPx = currentPos * pixelsPerUnit;
+
+      if (isHorizontal) {
+        // Major tick
+        rulerCtx.beginPath();
+        rulerCtx.moveTo(tickPx, 40);
+        rulerCtx.lineTo(tickPx, 55);
+        rulerCtx.stroke();
+
+        // Label
+        const label = currentPos.toFixed(majorTickDistance < 1 ? 1 : 0);
+        rulerCtx.fillText(label, tickPx, 8);
+
+        // Minor ticks
+        const minorTickCount = 4;
+        for (let i = 1; i < minorTickCount; i++) {
+          const minorPx = tickPx + (majorTickPixels / minorTickCount) * i;
+          if (minorPx < lengthPx) {
+            rulerCtx.beginPath();
+            rulerCtx.moveTo(minorPx, 48);
+            rulerCtx.lineTo(minorPx, 55);
+            rulerCtx.stroke();
+          }
+        }
+      } else {
+        // Major tick (vertical)
+        rulerCtx.beginPath();
+        rulerCtx.moveTo(40, tickPx);
+        rulerCtx.lineTo(55, tickPx);
+        rulerCtx.stroke();
+
+        // Label (rotated text effect using canvas)
+        rulerCtx.save();
+        rulerCtx.translate(8, tickPx);
+        rulerCtx.rotate(-Math.PI / 2);
+        const label = currentPos.toFixed(majorTickDistance < 1 ? 1 : 0);
+        rulerCtx.fillText(label, 0, 0);
+        rulerCtx.restore();
+
+        // Minor ticks
+        const minorTickCount = 4;
+        for (let i = 1; i < minorTickCount; i++) {
+          const minorPx = tickPx + (majorTickPixels / minorTickCount) * i;
+          if (minorPx < lengthPx) {
+            rulerCtx.beginPath();
+            rulerCtx.moveTo(48, minorPx);
+            rulerCtx.lineTo(55, minorPx);
+            rulerCtx.stroke();
+          }
+        }
+      }
+    }
+  }
+
+  function calculateMajorTickDistance(realLength, unit) {
+    const baseValues = {
+      cm: [0.5, 1, 2, 5, 10, 20, 50],
+      in: [0.25, 0.5, 1, 2, 4],
+      ft: [0.5, 1, 2, 5]
+    };
+
+    const values = baseValues[unit] || [1, 5, 10];
+
+    // Choose a distance that gives roughly 8-12 major ticks
+    const targetTicks = 10;
+    const targetDistance = realLength / targetTicks;
+
+    let bestDistance = values[0];
+    for (const val of values) {
+      if (val <= targetDistance) {
+        bestDistance = val;
+      }
+    }
+
+    return bestDistance;
+  }
+
+  function clearRulers() {
+    rulerTopCtx.clearRect(0, 0, rulerTopCanvas.width, rulerTopCanvas.height);
+    rulerLeftCtx.clearRect(0, 0, rulerLeftCanvas.width, rulerLeftCanvas.height);
+  }
+
+  // ---------- Download ----------
+  function downloadImage() {
+    if (!currentImage) return;
+
+    const format = formatSelect.value;
+    const mime = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+    const quality = format === 'jpeg' ? 0.95 : undefined;
+    const ext = format === 'jpeg' ? 'jpg' : 'png';
+    const withRulers = includeRulers.checked;
+
+    let downloadCanvas;
+
+    if (withRulers) {
+      downloadCanvas = composeDownloadWithRulers();
+    } else {
+      downloadCanvas = canvas;
+    }
+
+    // Export
+    let dataURL;
+    if (format === 'jpeg') {
+      const tmpCanvas = document.createElement('canvas');
+      tmpCanvas.width = downloadCanvas.width;
+      tmpCanvas.height = downloadCanvas.height;
+      const tmpCtx = tmpCanvas.getContext('2d');
+      tmpCtx.fillStyle = '#ffffff';
+      tmpCtx.fillRect(0, 0, tmpCanvas.width, tmpCanvas.height);
+      tmpCtx.drawImage(downloadCanvas, 0, 0);
+      dataURL = tmpCanvas.toDataURL(mime, quality);
+    } else {
+      dataURL = downloadCanvas.toDataURL(mime);
+    }
+
+    // Trigger download
+    const link = document.createElement('a');
+    link.download = `grid-image.${ext}`;
+    link.href = dataURL;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  /**
+   * Compose download canvas with rulers
+   * This creates a canvas matching the preview layout:
+   * [ corner ] [ horizontal ruler ]
+   * [ vertical ruler ] [ image ]
+   */
+  function composeDownloadWithRulers() {
+    const rulerWidth = 60;
+    const rulerHeight = 60;
+    const imageWidth = canvas.width;
+    const imageHeight = canvas.height;
+
+    const totalWidth = rulerWidth + imageWidth;
+    const totalHeight = rulerHeight + imageHeight;
+
+    const downloadCanvas = document.createElement('canvas');
+    downloadCanvas.width = totalWidth;
+    downloadCanvas.height = totalHeight;
+
+    const compositeCtx = downloadCanvas.getContext('2d');
+
+    // White background
+    compositeCtx.fillStyle = '#ffffff';
+    compositeCtx.fillRect(0, 0, totalWidth, totalHeight);
+
+    // Corner block
+    compositeCtx.fillStyle = '#f9fafb';
+    compositeCtx.fillRect(0, 0, rulerWidth, rulerHeight);
+    compositeCtx.strokeStyle = '#e5e7eb';
+    compositeCtx.lineWidth = 1;
+    compositeCtx.strokeRect(0, 0, rulerWidth, rulerHeight);
+
+    // Render horizontal ruler
+    const hRulerCanvas = document.createElement('canvas');
+    hRulerCanvas.width = imageWidth;
+    hRulerCanvas.height = rulerHeight;
+    const hRulerCtx = hRulerCanvas.getContext('2d');
+
+    const rw = parseFloat(realWidth.value) || 0;
+    const rh = parseFloat(realHeight.value) || 0;
+    const unit = unitSelect.value;
+    const scale = enlargedScaleMode.checked ? parseFloat(scaleMultiplier.value) || 1 : 1;
+
+    if (rw > 0 && rh > 0) {
+      const displayWidth = rw * scale;
+      const displayHeight = rh * scale;
+
+      renderRulerToContext(hRulerCtx, {
+        orientation: 'horizontal',
+        lengthPx: imageWidth,
+        thicknessPx: rulerHeight,
+        realLength: displayWidth,
+        unit: unit,
+        dpr: 1,
+        fontScale: 1,
+        labelScale: 1
+      });
+
+      // Render vertical ruler
+      const vRulerCanvas = document.createElement('canvas');
+      vRulerCanvas.width = rulerWidth;
+      vRulerCanvas.height = imageHeight;
+      const vRulerCtx = vRulerCanvas.getContext('2d');
+
+      renderRulerToContext(vRulerCtx, {
+        orientation: 'vertical',
+        lengthPx: imageHeight,
+        thicknessPx: rulerWidth,
+        realLength: displayHeight,
+        unit: unit,
+        dpr: 1,
+        fontScale: 1,
+        labelScale: 1
+      });
+
+      // Draw horizontal ruler at correct position
+      compositeCtx.drawImage(hRulerCanvas, rulerWidth, 0);
+
+      // Draw vertical ruler at correct position
+      compositeCtx.drawImage(vRulerCanvas, 0, rulerHeight);
+    }
+
+    // Draw image canvas
+    compositeCtx.drawImage(canvas, rulerWidth, rulerHeight);
+
+    return downloadCanvas;
+  }
+
+  // ---------- Reset ----------
+  function resetAll() {
+    currentImage = null;
+    fileInput.value = '';
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    canvas.style.display = 'none';
+    placeholder.style.display = 'block';
+    clearRulers();
+    enableControls(false);
+
+    realWidth.value = '';
+    realHeight.value = '';
+    targetWidth.value = '';
+    targetHeight.value = '';
+    scaleMultiplier.value = 1;
+    scaleDisplay.textContent = '1x';
+    enableCustomGrid.checked = false;
+    horizontalDivisions.value = 4;
+    verticalDivisions.value = 4;
+    diagonalSubdivisions.value = 1;
+    showDiamond.checked = true;
+
+    document.getElementById('infoOriginalSize').innerHTML = '—';
+    document.getElementById('infoTargetSize').innerHTML = '—';
+    document.getElementById('infoScaleMultiplier').innerHTML = '—';
+    document.getElementById('infoVerticalGuides').innerHTML = '—';
+    document.getElementById('infoHorizontalGuides').innerHTML = '—';
+  }
+
+})();
+</script>
+</body>
+</html>
